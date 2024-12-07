@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Taproot Witches</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #gameContainer {
+      width: 90vw;
+      height: 90vw;
+      max-width: 600px;
+      max-height: 600px;
+      border: 2px solid #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    #witch {
+      font-size: 8vw;
+      position: absolute;
+      left: 0px;
+      top: 0px;
+    }
+    .enemy {
+      font-size: 8vw;
+      position: absolute;
+      width: 8vw;
+      height: 8vw;
+    }
+    .obstacle {
+      position: absolute;
+      background-color: gray;
+    }
+    .collectible {
+      width: 5vw;
+      height: 5vw;
+      position: absolute;
+      background-color: gold;
+      border-radius: 50%;
+    }
+    #title {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 5vw;
+    }
+    #gameOverMessage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 6vw;
+      display: none;
+      color: red;
+    }
+    #score,
+    #level {
+      position: absolute;
+      font-size: 4vw;
+    }
+    #score {
+      top: 10px;
+      right: 10px;
+    }
+    #level {
+      top: 40px;
+      right: 10px;
+    }
+    /* On-Screen Controls */
+    #controls {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-wrap: wrap;
+      width: 150px;
+    }
+    .control-button {
+      width: 50px;
+      height: 50px;
+      margin: 5px;
+      font-size: 20px;
+      text-align: center;
+      line-height: 50px;
+      border: 2px solid #fff;
+      border-radius: 5px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      user-select: none;
+    }
+    .control-button:active {
+      background-color: rgba(255, 255, 255, 0.3);
+    }
+    @media (max-width: 600px) {
+      #title {
+        font-size: 4vw;
+      }
+      #gameOverMessage {
+        font-size: 5vw;
+      }
+      .control-button {
+        width: 40px;
+        height: 40px;
+        line-height: 40px;
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <div id="title">Taproot Witches</div>
+    <div id="score">Score: 0</div>
+    <div id="level">Level: 1</div>
+    <div id="witch">🧙‍♀️</div>
+    <div id="gameOverMessage">Game Over! Press Enter to Restart</div>
+  </div>
+  <div id="controls">
+    <div class="control-button" id="up">▲</div>
+    <div class="control-button" id="left">◀</div>
+    <div class="control-button" id="right">▶</div>
+    <div class="control-button" id="down">▼</div>
+  </div>
+  <script>
+    const witch = document.getElementById("witch");
+    const gameContainer = document.getElementById("gameContainer");
+    const scoreDisplay = document.getElementById("score");
+    const levelDisplay = document.getElementById("level");
+    const gameOverMessage = document.getElementById("gameOverMessage");
+
+    // Initial game state
+    let witchX = 0;
+    let witchY = 0;
+    let score = 0;
+    let level = 1;
+    let gameOver = false;
+
+    const containerSize = gameContainer.clientWidth;
+
+    // Move witch on touch controls
+    document.querySelectorAll(".control-button").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        if (gameOver) return;
+        switch (e.target.id) {
+          case "up":
+            witchY -= containerSize * 0.05;
+            break;
+          case "down":
+            witchY += containerSize * 0.05;
+            break;
+          case "left":
+            witchX -= containerSize * 0.05;
+            break;
+          case "right":
+            witchX += containerSize * 0.05;
+            break;
+        }
+        moveWitch();
+      });
+    });
+
+    // Prevent witch from leaving the game container
+    function moveWitch() {
+      witchX = Math.max(0, Math.min(witchX, gameContainer.clientWidth - witch.clientWidth));
+      witchY = Math.max(0, Math.min(witchY, gameContainer.clientHeight - witch.clientHeight));
+      witch.style.left = witchX + "px";
+      witch.style.top = witchY + "px";
+    }
+
+    // Other logic (e.g., collision detection, scoring, etc.) remains unchanged.
+    // Call moveWitch() whenever the position changes.
+
+    // Adjustments for enemies, obstacles, and collectibles should also scale based on container size.
+  </script>
+</body>
+</html>

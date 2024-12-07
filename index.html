@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Steady Teddy</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden; /* Prevent scrolling */
+    }
+    #gameContainer {
+      /* width: 600px; */
+      width: 100%;
+      height: 600px;
+      border: 2px solid #fff;
+      position: relative;
+      overflow: hidden; /* Ensure content stays within */
+    }
+    #witch {
+      font-size: 50px;
+      /* transform: scale(0.3); */
+      border-radius: 100%;
+      overflow: hidden;
+      position: absolute;
+      left: 0px;
+      top: 0px;
+    }
+    .enemy {
+      font-size: 50px;
+      position: absolute;
+      width: 50px;
+      height: 50px;
+    }
+    .obstacle {
+      position: absolute;
+      background-color: gray;
+    }
+    .collectible {
+      width: 30px;
+      height: 30px;
+      position: absolute;
+      background-color: gold;
+      border-radius: 50%;
+    }
+    #title {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 24px;
+    }
+    #gameOverMessage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      display: none;
+      color: red;
+    }
+    #score {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 20px;
+    }
+    #level {
+      position: absolute;
+      top: 40px;
+      right: 10px;
+      font-size: 20px;
+    }
+    .grid {
+      display : grid ;
+      width: 100%;
+      overflow: hidden;
+      border : 2px solid red;
+      grid-template-columns: 20% 60% 20%;
+    }
+    .ing {
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* .teddy {
+      background-color: red; */
+
+    /* } */
+  </style>
+</head>
+<body>
+  <div class="grid">
+    <div class="ing"><img  src="./img/mama.jpeg" alt=""></div>
+  <div id="gameContainer">
+    <div id="title">Adventures Of Steady Teddy</div>
+    <div id="score">Score: 0</div>
+    <div id="level">Level: 1</div>
+    <div id="witch">🐻</div>
+    <!-- <div id="witch"><img src="./img/bear.png" alt=""></div> -->
+    <div id="gameOverMessage">You've been caught teddy! stay steady Teddy!</div>
+  </div>
+  <div class="ing"><img src="./img/mama.jpeg" alt=""></div>
+  </div>
+  <script>
+    const witch = document.getElementById("witch");
+    const gameContainer = document.getElementById("gameContainer");
+    const scoreDisplay = document.getElementById("score");
+    const levelDisplay = document.getElementById("level");
+    const gameOverMessage = document.getElementById("gameOverMessage");
+
+    // Initial game state
+    let witchX = 0;
+    let witchY = 0;
+    let score = 0;
+    let level = 1;
+    let gameOver = false;
+    let enemyMovementInterval;
+    let collectibleInterval;
+    let enemySpeed = 2; // Starting speed for enemies
+    let isInvincible = false;
+    let invincibilityTimeout;
+    const enemySize = 50; // Fixed enemy size
+
+    // Move the witch using arrow keys
+    document.addEventListener("keydown", (e) => {
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        e.preventDefault(); // Prevent page scrolling
+      }
+
+      if (gameOver) {
+        if (e.key === "Enter") {
+          restartGame();
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case "ArrowUp":
+          witchY -= 10;
+          break;
+        case "ArrowDown":
+          witchY += 10;
+          break;
+        case "ArrowLeft":
+          witchX -= 10;
+          break;
+        case "ArrowRight":
+          witchX += 10;
+          break;
+      }
+
+      witchX = Math.max(0, Math.min(witchX, gameContainer.clientWidth - witch.clientWidth));
+      witchY = Math.max(0, Math.min(witchY, gameContainer.clientHeight - witch.clientHeight));
+
+      // Update the witch's position
+      witch.style.left = witchX + "px";
+      witch.style.top = witchY + "px";
+
+      // Check for collisions with enemies, obstacles, or collectibles
+      checkCollisions();
+    });
+
+    // Add an enemy for the witch to avoid
+    function createEnemy(movementType = "random") {
+      const enemy = document.createElement("div");
+      enemy.className = "enemy";
+      enemy.innerHTML = "👹";
+      enemy.style.width = enemySize + "px";
+      enemy.style.height = enemySize + "px";
+      gameContainer.appendChild(enemy);
+
+      // Ensure the enemy is placed within bounds
+      enemy.style.left = Math.random() * (gameContainer.clientWidth - enemySize) + "px";
+      enemy.style.top = Math.random() * (gameContainer.clientHeight - enemySize) + "px";
+
+      enemy.dataset.movementType = movementType;
+
+      // Set random speed and direction for enemy movement
+      enemy.dataset.dx = Math.random() > 0.5 ? 1 : -1;
+      enemy.dataset.dy = Math.random() > 0.5 ? 1 : -1;
+      enemy.dataset.angle = 0; // For circular movement
+    }
+
+    // Add obstacles to create a maze structure
+    function createObstacle(x, y, width, height) {
+      const obstacle = document.createElement("div");
+      obstacle.className = "obstacle";
+      obstacle.style.left = x + "px";
+      obstacle.style.top = y + "px";
+      obstacle.style.width = width + "px";
+      obstacle.style.height = height + "px";
+      gameContainer.appendChild(obstacle);
+    }
+
+    // Add a collectible item
+    function createCollectible(type = "score") {
+      const collectible = document.createElement("div");
+      collectible.className = "collectible";
+      collectible.dataset.type = type;
+      collectible.style.left = Math.random() * (gameContainer.clientWidth - 30) + "px";
+      collectible.style.top = Math.random() * (gameContainer.clientHeight - 30) + "px";
+      gameContainer.appendChild(collectible);
+
+      setTimeout(() => {
+        collectible.remove(); // Remove the collectible after a while
+      }, 10000); // Collectibles last for 10 seconds
+    }
+
+    // Check for collisions between the witch and enemies, obstacles, or collectibles
+    function checkCollisions() {
+      const enemies = document.getElementsByClassName("enemy");
+      const obstacles = document.getElementsByClassName("obstacle");
+      const collectibles = document.getElementsByClassName("collectible");
+      const witchRect = witch.getBoundingClientRect();
+      const buffer = 10;  // Add a buffer to reduce false collisions
+
+      // Check for collisions with enemies
+      for (let enemy of enemies) {
+        const enemyRect = enemy.getBoundingClientRect();
+
+        // Adjust collision box to be less sensitive
+        if (
+          witchRect.left + buffer < enemyRect.right - buffer &&
+          witchRect.right - buffer > enemyRect.left + buffer &&
+          witchRect.top + buffer < enemyRect.bottom - buffer &&
+          witchRect.bottom - buffer > enemyRect.top + buffer
+        ) {
+          if (!isInvincible) {
+            triggerGameOver();
+            return;
+          }
+        }
+      }
+
+      // Check for collisions with obstacles
+      for (let obstacle of obstacles) {
+        const obstacleRect = obstacle.getBoundingClientRect();
+        if (
+          witchRect.left < obstacleRect.right &&
+          witchRect.right > obstacleRect.left &&
+          witchRect.top < obstacleRect.bottom &&
+          witchRect.bottom > obstacleRect.top
+        ) {
+          triggerGameOver();
+          return;
+        }
+      }
+
+      // Check for collisions with collectibles
+      for (let collectible of collectibles) {
+        const collectibleRect = collectible.getBoundingClientRect();
+        if (
+          witchRect.left < collectibleRect.right &&
+          witchRect.right > collectibleRect.left &&
+          witchRect.top < collectibleRect.bottom &&
+          witchRect.bottom > collectibleRect.top
+        ) {
+          handleCollectible(collectible);
+          collectible.remove(); // Remove the collectible after being collected
+        }
+      }
+
+      // Check if player has advanced to the next level
+      if (score >= level * 10) {
+        advanceToNextLevel();
+      }
+    }
+
+    // Handle collectible actions
+    function handleCollectible(collectible) {
+      const type = collectible.dataset.type;
+      if (type === "score") {
+        score += 5; // Add bonus score
+        scoreDisplay.textContent = "Score: " + score;
+      } else if (type === "invincibility") {
+        activateInvincibility();
+      }
+    }
+
+    // Activate invincibility for a short period
+    function activateInvincibility() {
+      isInvincible = true;
+      witch.style.opacity = 0.5; // Make the witch appear semi-transparent
+      clearTimeout(invincibilityTimeout);
+      invincibilityTimeout = setTimeout(() => {
+        isInvincible = false;
+        witch.style.opacity = 1; // Reset the witch's appearance
+      }, 5000); // Invincibility lasts for 5 seconds
+    }
+
+    // Trigger game over state
+    function triggerGameOver() {
+      gameOver = true;
+      gameOverMessage.style.display = "block";
+      clearInterval(scoreInterval); // Stop score incrementing
+      clearInterval(enemyMovementInterval);
+      clearInterval(collectibleInterval);
+    }
+
+    // Restart the game
+    function restartGame() {
+      witchX = 0;
+      witchY = 0;
+      witch.style.left = witchX + "px";
+      witch.style.top = witchY + "px";
+      gameOver = false;
+      gameOverMessage.style.display = "none";
+      score = 0;
+      level = 1;
+      enemySpeed = 2; // Reset enemy speed
+      isInvincible = false;
+      witch.style.opacity = 1; // Reset the witch's appearance
+      scoreDisplay.textContent = "Score: " + score;
+      levelDisplay.textContent = "Level: " + level;
+      removeAllEnemies();
+      removeAllObstacles();
+      removeAllCollectibles();
+      for (let i = 0; i < 5; i++) {
+        createEnemy();
+      }
+      createMaze(level);
+      startScoring();
+      startEnemyMovement();
+      startCollectibleSpawning();
+    }
+
+    function removeAllEnemies() {
+      const enemies = document.getElementsByClassName("enemy");
+      while (enemies.length > 0) {
+        enemies[0].remove();
+      }
+    }
+
+    function removeAllObstacles() {
+      const obstacles = document.getElementsByClassName("obstacle");
+      while (obstacles.length > 0) {
+        obstacles[0].remove();
+      }
+    }
+
+    function removeAllCollectibles() {
+      const collectibles = document.getElementsByClassName("collectible");
+      while (collectibles.length > 0) {
+        collectibles[0].remove();
+      }
+    }
+
+    // Scoring system
+    let scoreInterval;
+    function startScoring() {
+      scoreInterval = setInterval(() => {
+        if (!gameOver) {
+          score += 1;
+          scoreDisplay.textContent = "Score: " + score;
+        }
+      }, 1000); // Increase score every second
+    }
+
+    // Start enemy movement with different movement patterns
+    function startEnemyMovement() {
+      enemyMovementInterval = setInterval(() => {
+        if (gameOver) return;
+
+        const enemies = document.getElementsByClassName("enemy");
+        for (let enemy of enemies) {
+          let dx = parseFloat(enemy.dataset.dx);
+          let dy = parseFloat(enemy.dataset.dy);
+          let left = parseFloat(enemy.style.left);
+          let top = parseFloat(enemy.style.top);
+
+          // Get the movement type of the enemy
+          const movementType = enemy.dataset.movementType;
+
+          if (movementType === "random" || movementType === "diagonal") {
+            // Move enemy
+            left += dx * enemySpeed;
+            top += dy * enemySpeed;
+
+            // Reverse direction if enemy hits the wall
+            if (left <= 0 || left >= gameContainer.clientWidth - enemySize) {
+              dx = -dx;
+              enemy.dataset.dx = dx;
+            }
+            if (top <= 0 || top >= gameContainer.clientHeight - enemySize) {
+              dy = -dy;
+              enemy.dataset.dy = dy;
+            }
+
+            // Update enemy position
+            enemy.style.left = left + "px";
+            enemy.style.top = top + "px";
+          } else if (movementType === "circular") {
+            // Move in a circular path
+            let angle = parseFloat(enemy.dataset.angle || "0");
+            angle += 0.05; // Adjust the speed of rotation
+            const radius = 50;
+            const centerX = parseFloat(enemy.dataset.centerX || enemy.style.left);
+            const centerY = parseFloat(enemy.dataset.centerY || enemy.style.top);
+
+            left = centerX + Math.cos(angle) * radius;
+            top = centerY + Math.sin(angle) * radius;
+
+            // Ensure the enemy stays within bounds
+            left = Math.max(0, Math.min(left, gameContainer.clientWidth - enemySize));
+            top = Math.max(0, Math.min(top, gameContainer.clientHeight - enemySize));
+
+            enemy.style.left = left + "px";
+            enemy.style.top = top + "px";
+
+            enemy.dataset.angle = angle;
+            enemy.dataset.centerX = centerX;
+            enemy.dataset.centerY = centerY;
+          }
+        }
+      }, 20);
+    }
+
+    function startCollectibleSpawning() {
+      collectibleInterval = setInterval(() => {
+        if (!gameOver) {
+          const randomType = Math.random() > 0.5 ? "score" : "invincibility";
+          createCollectible(randomType);
+        }
+      }, 5000);
+    }
+
+    // Advance to the next level
+    function advanceToNextLevel() {
+      level++;
+      levelDisplay.textContent = "Level: " + level;
+      enemySpeed = Math.min(enemySpeed + 0.5, 10); // Increase enemy speed with cap
+      removeAllEnemies();
+      removeAllObstacles();
+      removeAllCollectibles();
+      for (let i = 0; i < 5 + level; i++) {
+        // Randomly assign different movement patterns to enemies
+        const movementType = Math.random() > 0.5 ? "diagonal" : "circular";
+        createEnemy(movementType);
+      }
+      createMaze(level); // Create a more complex maze
+    }
+
+    // Create a maze based on the current level
+    function createMaze(level) {
+      // Remove existing obstacles before creating new ones
+      removeAllObstacles();
+
+      // Level 1 Maze
+      createObstacle(100, 100, 100, 20);
+      createObstacle(200, 200, 20, 100);
+      createObstacle(300, 50, 100, 20);
+
+      if (level >= 2) {
+        // Level 2 Additional Obstacles
+        createObstacle(400, 300, 20, 200);
+        createObstacle(50, 400, 150, 20);
+      }
+
+      if (level >= 3) {
+        // Level 3 Additional Obstacles
+        createObstacle(250, 150, 20, 200);
+        createObstacle(150, 350, 200, 20);
+      }
+
+      // Add more obstacles as levels progress
+    }
+
+    // Initial setup
+    for (let i = 0; i < 5; i++) {
+      createEnemy();
+    }
+    createMaze(level);
+    startScoring();
+    startEnemyMovement();
+    startCollectibleSpawning();
+  </script>
+</body>
+</html>
